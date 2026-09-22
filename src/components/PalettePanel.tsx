@@ -24,15 +24,24 @@ export default function PalettePanel() {
     if (chart.palette.length <= 1) return;
     updateChart(chart.id, (c) => {
       const palette = c.palette.filter((_, i) => i !== index);
-      const newCells = new Uint16Array(c.cells);
+      // 格子里存的是调色板序号，删除后要把序号重映射到新调色板：
+      // 被删颜色的格子回落到背景色 0，排在其后的颜色序号前移一格
       const last = palette.length - 1;
+      const newCells = new Uint16Array(c.cells);
       for (let i = 0; i < newCells.length; i++) {
+        const v = newCells[i];
+        if (v === index) newCells[i] = 0;
+        else if (v > index) newCells[i] = v - 1;
         if (newCells[i] > last) newCells[i] = last;
       }
       return { ...c, palette, cells: newCells };
     });
-    if (selectedColorIndex >= chart.palette.length) {
-      setSelectedColorIndex(0);
+    // 画笔也要落到还存在的颜色上
+    const newLen = chart.palette.length - 1;
+    if (selectedColorIndex === index) {
+      setSelectedColorIndex(Math.min(index, newLen - 1));
+    } else if (selectedColorIndex > index) {
+      setSelectedColorIndex(selectedColorIndex - 1);
     }
   };
 
@@ -42,7 +51,12 @@ export default function PalettePanel() {
     updateChart(chart.id, (c) => {
       const palette = [...c.palette];
       [palette[index], palette[newIndex]] = [palette[newIndex], palette[index]];
+      // 两个颜色互换位置，画布上对应的序号也要互换，格子颜色才不变
       const newCells = new Uint16Array(c.cells);
+      for (let i = 0; i < newCells.length; i++) {
+        if (newCells[i] === index) newCells[i] = newIndex;
+        else if (newCells[i] === newIndex) newCells[i] = index;
+      }
       return { ...c, palette, cells: newCells };
     });
     if (selectedColorIndex === index) setSelectedColorIndex(newIndex);
