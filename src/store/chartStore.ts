@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Chart, Tool, Point, Rect } from '../types';
+import { moveColorInCells, removeColorFromCells } from '../utils/palette';
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -44,6 +45,8 @@ interface AppActions {
   duplicateChart: (id: string) => string;
   setCurrentChart: (id: string | null) => void;
   updateChart: (id: string, updater: (chart: Chart) => Chart) => void;
+  removePaletteColor: (id: string, index: number) => void;
+  movePaletteColor: (id: string, index: number, direction: -1 | 1) => void;
   setTool: (tool: Tool) => void;
   setSelectedColorIndex: (index: number) => void;
   setScale: (scale: number) => void;
@@ -111,6 +114,57 @@ export const useChartStore = create<AppState & AppActions>()(
         set((s) => ({
           charts: s.charts.map((c) => (c.id === id ? updater(c) : c)),
         }));
+      },
+
+      removePaletteColor: (id, index) => {
+        set((s) => {
+          const chart = s.charts.find((c) => c.id === id);
+          if (!chart || chart.palette.length <= 1) return s;
+
+          const newLength = chart.palette.length - 1;
+          let nextSelectedColorIndex = s.selectedColorIndex;
+          if (nextSelectedColorIndex > index) nextSelectedColorIndex -= 1;
+          if (nextSelectedColorIndex >= newLength) nextSelectedColorIndex = newLength - 1;
+
+          return {
+            charts: s.charts.map((c) => {
+              if (c.id !== id) return c;
+              return {
+                ...c,
+                palette: c.palette.filter((_, i) => i !== index),
+                cells: removeColorFromCells(c.cells, index),
+              };
+            }),
+            selectedColorIndex: Math.max(0, nextSelectedColorIndex),
+          };
+        });
+      },
+
+      movePaletteColor: (id, index, direction) => {
+        const newIndex = index + direction;
+        set((s) => {
+          const chart = s.charts.find((c) => c.id === id);
+          if (!chart || newIndex < 0 || newIndex >= chart.palette.length) return s;
+
+          return {
+            charts: s.charts.map((c) => {
+              if (c.id !== id) return c;
+              const palette = [...c.palette];
+              [palette[index], palette[newIndex]] = [palette[newIndex], palette[index]];
+              return {
+                ...c,
+                palette,
+                cells: moveColorInCells(c.cells, index, newIndex),
+              };
+            }),
+            selectedColorIndex:
+              s.selectedColorIndex === index
+                ? newIndex
+                : s.selectedColorIndex === newIndex
+                  ? index
+                  : s.selectedColorIndex,
+          };
+        });
       },
 
       setTool: (tool) => set({ tool }),

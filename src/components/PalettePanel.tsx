@@ -4,6 +4,8 @@ import { useChartStore } from '../store/chartStore';
 export default function PalettePanel() {
   const chart = useChartStore((s) => s.getCurrentChart());
   const updateChart = useChartStore((s) => s.updateChart);
+  const removePaletteColor = useChartStore((s) => s.removePaletteColor);
+  const movePaletteColor = useChartStore((s) => s.movePaletteColor);
   const selectedColorIndex = useChartStore((s) => s.selectedColorIndex);
   const setSelectedColorIndex = useChartStore((s) => s.setSelectedColorIndex);
   const [newColor, setNewColor] = useState('#3498db');
@@ -21,32 +23,11 @@ export default function PalettePanel() {
   };
 
   const removeColor = (index: number) => {
-    if (chart.palette.length <= 1) return;
-    updateChart(chart.id, (c) => {
-      const palette = c.palette.filter((_, i) => i !== index);
-      const newCells = new Uint16Array(c.cells);
-      const last = palette.length - 1;
-      for (let i = 0; i < newCells.length; i++) {
-        if (newCells[i] > last) newCells[i] = last;
-      }
-      return { ...c, palette, cells: newCells };
-    });
-    if (selectedColorIndex >= chart.palette.length) {
-      setSelectedColorIndex(0);
-    }
+    removePaletteColor(chart.id, index);
   };
 
-  const moveColor = (index: number, dir: number) => {
-    const newIndex = index + dir;
-    if (newIndex < 0 || newIndex >= chart.palette.length) return;
-    updateChart(chart.id, (c) => {
-      const palette = [...c.palette];
-      [palette[index], palette[newIndex]] = [palette[newIndex], palette[index]];
-      const newCells = new Uint16Array(c.cells);
-      return { ...c, palette, cells: newCells };
-    });
-    if (selectedColorIndex === index) setSelectedColorIndex(newIndex);
-    else if (selectedColorIndex === newIndex) setSelectedColorIndex(index);
+  const moveColor = (index: number, dir: -1 | 1) => {
+    movePaletteColor(chart.id, index, dir);
   };
 
   return (
